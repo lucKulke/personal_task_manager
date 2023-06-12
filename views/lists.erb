@@ -1,12 +1,14 @@
+
 <ul id="lists">
-  <% @lists.each do |list| %>
-    <li>
-      <a>
+  <% sorted_lists(@lists) do |list, index| %>
+    <li class="<%= list_class(list) %>"> 
+      <a href="/lists/<%=index%>">
         <h2><%= list[:name] %></h2> 
-        <p><%= list[:todos].size %></p>
+        <p><%= "#{count_completed_todos(list)}/#{list[:todos].size}" %></p>
       </a>
     </li>
   <% end %>
 </ul>
-
-<a href="/lists/new"> create new list </a>
+<% content_for :header_links do %>
+  <a class="add" href="/lists/new">New List</a>
+<% end %>
