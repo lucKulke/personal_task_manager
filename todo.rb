@@ -56,12 +56,14 @@ helpers do
 end
 
 get "/" do
-  redirect "/lists"
+  redirect "/lists" if !session[:lists].size.zero?
+  erb :home
 end
 
 # Views all available lists
 get "/lists" do
   @lists = session[:lists]
+  redirect "/" if @lists.size.zero?
   erb :lists
 end
 
@@ -114,6 +116,8 @@ post "/lists/:id" do
     redirect "/lists/#{id}"
   end
 end
+
+# destroy list
 
 post '/lists/:id/destroy' do
   id = params[:id].to_i
