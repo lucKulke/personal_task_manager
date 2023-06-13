@@ -179,8 +179,7 @@ end
 
 
 def add_new_list(name: nil)
-  id = session[:lists].empty? ? 0 : (session[:lists].last[:id] + 1)
-  session[:lists] << {name: name, todos: [], id: id}
+  session[:lists] << {name: name, todos: []}
 end
 
 def error_for_id(id)
