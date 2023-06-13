@@ -5,7 +5,8 @@ require "sinatra/content_for"
 
 configure do 
   enable :sessions
-  set :session_secret, 'secret'
+  set :session_secret, "d14e451a1712ec868e809070db22036539e12dfa9eb4d84519d2e57fb195d9dc"
+  set :erb, :escape_html => true
 end
 
 before do 
