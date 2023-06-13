@@ -73,15 +73,17 @@ get "/lists/new" do
   erb :new_list
 end
 
+# view list
 get "/lists/:id" do 
   id = params[:id].to_i
-  @list = session[:lists][id]
+  @list = load_list(id)
   erb :list
 end
 
+# edit list name view 
 get "/lists/:id/edit" do 
   id = params[:id].to_i
-  @list = session[:lists][id]
+  @list = load_list(id)
   erb :edit_list
 end
 
@@ -101,9 +103,10 @@ post "/lists" do
   end
 end
 
+# edit list name
 post "/lists/:id" do
   id = params[:id].to_i
-  @list = session[:lists][id]
+  @list = load_list(id)
   
   list_name = params[:list_name].strip
 
@@ -131,7 +134,7 @@ end
 post '/lists/:list_id/todos' do
   list_id = params[:list_id].to_i
   todo_name = params[:todo].strip
-  @list = session[:lists][list_id]
+  @list = load_list(list_id)
 
 
   error = error_for_todo_name(todo_name, @list[:todos])
@@ -149,7 +152,7 @@ end
 post '/lists/:list_id/todos/:todo_id/destroy' do 
   list_id = params[:list_id].to_i
   todo_id = params[:todo_id].to_i
-  todos = session[:lists][list_id][:todos]
+  todos = load_list(list_id)[:todos]
   todos.delete_at(todo_id)
   session[:success] = "The todo has been deleted."
   redirect "/lists/#{list_id}"
@@ -159,7 +162,7 @@ end
 post '/lists/:list_id/todos/:todo_id' do
   list_id = params[:list_id].to_i
   todo_id = params[:todo_id].to_i
-  list = session[:lists][list_id]
+  list = load_list(list_id)
   todo = list[:todos][todo_id]
   is_completed = params[:completed] == "true"
   todo[:completed] = is_completed
@@ -170,7 +173,7 @@ end
 # completes all todos inside a list
 post '/lists/:list_id/complete_all' do
   list_id = params[:list_id].to_i
-  session[:lists][list_id][:todos].each do |todo|
+  load_list(list_id)[:todos].each do |todo|
       todo[:completed] = true
   end
   session[:success] = "All todos completed!"
@@ -181,11 +184,6 @@ end
 def add_new_list(name: nil)
   session[:lists] << {name: name, todos: []}
 end
-
-def error_for_id(id)
-  return nil if /^\d+$/ =~ id && session[:lists].any { |list| list[:id] == id.to_i }
-  "List not found"
-end 
 
 def error_for_list_name(list_name)
   return "List name musst be uniq" if session[:lists].any?{ |list| list[:name] == list_name }
@@ -199,6 +197,9 @@ def error_for_todo_name(todo_name, todos)
   nil
 end
 
-def get_list(id)
-  session[:lists].select{ |list| list[:id] == id }
-end
+def load_list(id)
+  list = session[:lists][id] if id && session[:lists][id]
+  return list if list
+  session[:error] = "The specified list was not found"
+  redirect "/lists"
+end 
