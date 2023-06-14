@@ -28,33 +28,54 @@ helpers do
   end
 
   def sorted_lists(lists)
-    lists = sort(lists){ |list| list_complete?(list) }
+    lists = lists.sort_by{ |a, b| list_complete?(a) ? 1 : 0 }
     lists.each do |list|
-      yield(list[0], list[1])
+      yield(list)
     end
   end
 
   def sorted_todos(todos)
-    todos = sort(todos){ |todo| todo[:completed] }
+    todos = todos.sort_by{ |a, b| a[:completed] ? 1 : 0 }
     todos.each do |todo|
-      yield(todo[0], todo[1])
+      yield(todo)
     end
-  end
-
-  def sort(array)
-    top_elements = []
-    bottom_elements = []
-    array.each_with_index do |element, index|
-      if yield(element)
-        top_elements << [element, index]
-      else
-        bottom_elements << [element, index]
-      end
-    end
-    bottom_elements + top_elements
   end
 
 end
+
+
+def add_new_list(lists, name)
+  id = new_id(lists)
+  lists << {name: name, todos: [], id: id}
+end
+
+def new_id(array)
+  max = array.map{ |obj| obj[:id] }.max || -1
+  max + 1 
+end
+
+def error_for_list_name(list_name)
+  return "List name musst be uniq" if session[:lists].any?{ |list| list[:name] == list_name }
+  return "The name of the list musst be between 1 and 100 characters" unless (1..100).cover?(list_name.size)
+  nil
+end
+
+def error_for_todo_name(todo_name, todos)
+  return "Todo name musst be uniq" if todos.any?{ |todo| todo[:name] == todo_name }
+  return "The name of the Todo musst be between 1 and 100 characters" unless (1..100).cover?(todo_name.size)
+  nil
+end
+
+def load_list(id)
+  return session[:lists].find{ |list| list[:id] == id } if all_ids.include?(id)
+  session[:error] = "The specified list was not found"
+  redirect "/lists"
+end 
+
+def all_ids
+  session[:lists].map{ |list| list[:id] }
+end
+
 
 get "/" do
   redirect "/lists" if !session[:lists].size.zero?
@@ -97,7 +118,7 @@ post "/lists" do
     session[:error] = error
     erb :new_list
   else
-    add_new_list(name: list_name)
+    add_new_list(session[:lists], list_name)
     session[:success] = "The list '#{params[:list_name]}' has been created."
     redirect "/lists"
   end
@@ -124,10 +145,14 @@ end
 # destroy list
 
 post '/lists/:id/destroy' do
-  id = params[:id].to_i
-  session[:lists].delete_at(id)
+  list_id = params[:id].to_i
+  session[:lists].delete_if{ |list| list[:id] == list_id }
   session[:success] = "The list has been deleted."
-  redirect "/lists"
+  if env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
+    "/lists"
+  else
+    redirect "/lists"
+  end
 end
 
 # Add new todo to a list
@@ -142,7 +167,8 @@ post '/lists/:list_id/todos' do
     session[:error] = error
     redirect "/lists/#{list_id}"
   else
-    @list[:todos] << {name: todo_name, completed: false}
+    id = new_id(@list[:todos])
+    @list[:todos] << {id: id, name: todo_name, completed: false}
     session[:success] = "Todo was added successfully."
     redirect "/lists/#{list_id}"
   end
@@ -153,17 +179,21 @@ post '/lists/:list_id/todos/:todo_id/destroy' do
   list_id = params[:list_id].to_i
   todo_id = params[:todo_id].to_i
   todos = load_list(list_id)[:todos]
-  todos.delete_at(todo_id)
+  todos.delete_if{ |todo| todo[:id] == todo_id }
   session[:success] = "The todo has been deleted."
-  redirect "/lists/#{list_id}"
+  if env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
+    status 204
+  else
+    redirect "/lists/#{list_id}"
+  end
 end
 
 # set todo to completed or uncompleted
-post '/lists/:list_id/todos/:todo_id' do
+post '/lists/:list_id/todos/:todo_id/complete' do
   list_id = params[:list_id].to_i
   todo_id = params[:todo_id].to_i
   list = load_list(list_id)
-  todo = list[:todos][todo_id]
+  todo = list[:todos].select{ |todo| todo[:id] == todo_id }.first
   is_completed = params[:completed] == "true"
   todo[:completed] = is_completed
   session[:success] = is_completed ? "The Todo #{todo[:name]} is completed" : "The Todo #{todo[:name]} is uncompleted"
@@ -181,25 +211,3 @@ post '/lists/:list_id/complete_all' do
 end
 
 
-def add_new_list(name: nil)
-  session[:lists] << {name: name, todos: []}
-end
-
-def error_for_list_name(list_name)
-  return "List name musst be uniq" if session[:lists].any?{ |list| list[:name] == list_name }
-  return "The name of the list musst be between 1 and 100 characters" unless (1..100).cover?(list_name.size)
-  nil
-end
-
-def error_for_todo_name(todo_name, todos)
-  return "Todo name musst be uniq" if todos.any?{ |todo| todo[:name] == todo_name }
-  return "The name of the Todo musst be between 1 and 100 characters" unless (1..100).cover?(todo_name.size)
-  nil
-end
-
-def load_list(id)
-  list = session[:lists][id] if id && session[:lists][id]
-  return list if list
-  session[:error] = "The specified list was not found"
-  redirect "/lists"
-end 
